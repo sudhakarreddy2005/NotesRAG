@@ -122,3 +122,52 @@ def load_all_documents(data_dir: str = "data") -> List[Any]:
 
     print(f"[INFO] Ingestion complete. Total document chunks loaded: {len(documents)}")
     return documents
+
+
+def load_single_document(file_path: str) -> List[Any]:
+    """Load any document kind from file_path into LangChain Document format."""
+    from langchain_core.documents import Document
+
+    path = Path(file_path).resolve()
+    ext = path.suffix.lower()
+    documents: List[Any] = []
+
+    try:
+        if ext == ".pdf":
+            loader = PyPDFLoader(str(path))
+            documents = loader.load()
+        elif ext in [".txt", ".md", ".text", ".py", ".js", ".ts", ".html", ".css", ".yaml", ".yml", ".toml", ".sh"]:
+            loader = TextLoader(str(path), encoding="utf-8")
+            documents = loader.load()
+        elif ext == ".docx":
+            loader = Docx2txtLoader(str(path))
+            documents = loader.load()
+        elif ext == ".json":
+            loader = JSONLoader(str(path), jq_schema=".", text_content=False)
+            documents = loader.load()
+        elif ext == ".csv":
+            loader = CSVLoader(str(path))
+            documents = loader.load()
+        else:
+            # Universal fallback: read text with errors ignored
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+            if content.strip():
+                documents = [Document(page_content=content, metadata={"source": str(path)})]
+    except Exception as e:
+        print(f"[WARN] Specific loader failed for {path.name}: {e}. Falling back to universal text reader.")
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+            if content.strip():
+                documents = [Document(page_content=content, metadata={"source": str(path)})]
+        except Exception as fallback_err:
+            print(f"[ERROR] Failed to read {path.name}: {fallback_err}")
+            return []
+
+    for doc in documents:
+        doc.metadata["source_name"] = path.name
+        doc.metadata["file_type"] = ext.lstrip(".") or "unknown"
+
+    print(f"[INFO] Loaded {len(documents)} document chunk(s) from '{path.name}'.")
+    return documents

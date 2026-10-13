@@ -13,6 +13,10 @@ env/
 .env
 .env.local
 .env.*.local
+frontend/.env*.local
+frontend/node_modules/
+frontend/.next/
+frontend/.vercel/
 *.pem
 *.key
 !.env.example

@@ -113,6 +113,30 @@ class FaissVectorStore:
         query_emb = self.model.encode([query_text]).astype("float32")
         return self.search(query_emb, top_k=top_k)
 
+    def append_documents(self, documents: List[Any]) -> None:
+        """Incrementally encode and add documents into the existing FAISS index."""
+        if not documents:
+            return
+        if self.index is None:
+            self.load()
+        emb_pipe = EmbeddingPipeline(
+            model_name=self.embedding_model,
+            chunk_size=self.chunk_size,
+            chunk_overlap=self.chunk_overlap,
+        )
+        chunks = emb_pipe.chunk_documents(documents)
+        if not chunks:
+            return
+        embeddings = emb_pipe.embed_chunks(chunks)
+        metadatas = [
+            {"text": chunk.page_content, **getattr(chunk, "metadata", {})}
+            for chunk in chunks
+        ]
+        self.add_embeddings(np.array(embeddings).astype("float32"), metadatas)
+        self.save()
+        print(f"[INFO] Appended {len(chunks)} chunks to FAISS store.")
+
+
 
 if __name__ == "__main__":
     try:

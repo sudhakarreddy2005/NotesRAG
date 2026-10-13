@@ -1,0 +1,41 @@
+[project]
+name = "notesrag"
+version = "0.1.0"
+description = "Production-grade Modular Retrieval-Augmented Generation (RAG) System powered by LangChain, FAISS, and Groq"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+keywords = [
+    "rag",
+    "retrieval-augmented-generation",
+    "langchain",
+    "faiss",
+    "groq",
+    "vector-database",
+    "sentence-transformers",
+]
+authors = [
+    { name = "sudhakarreddy2005", email = "sudhakarreddy30102005@gmail.com" }
+]
+dependencies = [
+    "chromadb>=1.5.9",
+    "faiss-cpu>=1.15.1",
+    "fonttools>=4.66.1",
+    "ipykernel>=7.4.0",
+    "langchain>=1.4.3",
+    "langchain-community>=0.4.2",
+    "langchain-core>=1.6.7",
+    "langchain-groq>=1.1.3",
+    "langchain-text-splitters>=1.1.3",
+    "pymupdf>=1.28.2",
+    "pypdf>=6.19.0",
+    "python-dotenv>=1.2.4",
+    "sentence-transformers>=6.1.0",
+]
+
+[project.scripts]
+notesrag = "app:main"
+
+[build-system]
+requires = ["uv_build>=0.12.0,<0.13.0"]
+build-backend = "uv_build"

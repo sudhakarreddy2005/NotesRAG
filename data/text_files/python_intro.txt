@@ -1,0 +1,32 @@
+# Introduction to Python Programming
+
+Python is a high-level, interpreted, dynamically typed, and garbage-collected programming language created by Guido van Rossum and first released in 1991. Python emphasizes code readability and developer productivity with its clean syntax and use of significant whitespace indentation.
+
+## Key Features of Python
+
+1. Expressive and Readable Syntax:
+   Python's syntax closely resembles pseudo-code and natural English, making it rapid to develop, maintain, and learn.
+
+2. Multi-Paradigm Programming:
+   Python natively supports:
+   - Object-Oriented Programming (classes, inheritance, polymorphism, encapsulation)
+   - Procedural Programming (functions, control structures, modularity)
+   - Functional Programming (first-class functions, map, filter, list comprehensions, lambda expressions)
+
+3. Dynamic Typing with Optional Type Hints:
+   Variables are bound to objects at runtime rather than fixed types at compile time. Modern Python (PEP 484+) supports static type hinting for static analyzers like MyPy and Pyright.
+
+4. Extensive Standard Library ("Batteries Included"):
+   Provides out-of-the-box modules for file I/O, math, regular expressions, JSON parsing, HTTP networking, concurrency (threading, asyncio, multiprocessing), and data serialization.
+
+5. Rich Ecosystem for Data Science & AI:
+   Python is the de facto standard language for Artificial Intelligence, Machine Learning, and Scientific Computing thanks to libraries such as:
+   - NumPy: Fast N-dimensional array processing
+   - Pandas: Tabular data analysis and manipulation
+   - Scikit-learn: Classical machine learning algorithms
+   - PyTorch and TensorFlow: Deep learning frameworks
+   - Hugging Face Transformers: State-of-the-art NLP models
+   - LangChain and LlamaIndex: Orchestration frameworks for Retrieval-Augmented Generation (RAG) and LLM agentic systems.
+
+## Python Execution Model
+Python source code (.py) is compiled into bytecode (.pyc) which is then executed by the Python Virtual Machine (PVM). CPython is the standard reference implementation written in C.

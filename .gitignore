@@ -1,0 +1,52 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+!.env.example
+
+# Vector Store databases & indexes (runtime artifacts)
+faiss_store/
+data/vector_store/
+*.index
+*.pkl
+*.sqlite3
+chroma/
+chroma_db/
+
+# Raw / Large PDFs (keep folder structure via .gitkeep)
+data/pdf/*.pdf
+!data/pdf/.gitkeep
+
+# IDEs & Editor metadata
+.vscode/
+.idea/
+.kilo/
+*.swp
+*.swo
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+
+# Packaging & distribution
+build/
+dist/
+wheels/
+*.egg-info/
+
+# Operating System files
+.DS_Store
+Thumbs.db

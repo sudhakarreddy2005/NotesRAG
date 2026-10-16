@@ -1,56 +1,125 @@
-# Byte-compiled / optimized / DLL files
+# ==============================================================================
+# NotesRAG — Comprehensive .gitignore
+# ==============================================================================
+
+# Dependencies & Package Managers
+node_modules/
+frontend/node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Next.js & Frontend Build Outputs
+.next/
+out/
+build/
+dist/
+wheels/
+*.egg-info/
+*.tsbuildinfo
+next-env.d.ts
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/dist/
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
+
+# Vercel Deployment Metadata
+.vercel/
+frontend/.vercel/
+
+# Logs & Debugging Artifacts
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+lerna-debug.log*
+
+# Python Bytecode & Packaging
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+.pytest_cache/
+.coverage
+.coverage.*
+coverage/
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
 
-# Virtual Environments
+# Python Virtual Environments
 .venv/
 venv/
 ENV/
 env/
+.uv/
 
 # Environment Variables & Secrets
 .env
-.env.local
-.env.*.local
-frontend/.env*.local
-frontend/node_modules/
-frontend/.next/
-frontend/.vercel/
+.env.*
+!.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
 *.pem
 *.key
-!.env.example
+*.cert
+*.crt
 
-# Vector Store databases & indexes (runtime artifacts)
+# Vector Store Databases, Indexes & Serializations (Runtime Artifacts)
 faiss_store/
 data/vector_store/
-*.index
-*.pkl
-*.sqlite3
 chroma/
 chroma_db/
+*.index
+*.pkl
+*.sqlite
+*.sqlite3
+*.db
+*.parquet
 
-# Raw / Large PDFs (keep folder structure via .gitkeep)
-data/pdf/*.pdf
+# User Uploaded Documents (Keep folder structure via .gitkeep)
+data/pdf/*
 !data/pdf/.gitkeep
+data/text_files/*
+!data/text_files/.gitkeep
+data/uploads/
 
-# IDEs & Editor metadata
+# IDEs, Editors & AI Agent Caches
 .vscode/
 .idea/
 .kilo/
 *.swp
 *.swo
+*~
+.gemini/
+.agents/
+.aider*
+.cursor/
+.windsurf/
 
-# Jupyter Notebook checkpoints
+# Jupyter Notebook Checkpoints
 .ipynb_checkpoints/
 *-checkpoint.ipynb
 
-# Packaging & distribution
-build/
-dist/
-wheels/
-*.egg-info/
-
-# Operating System files
+# Operating System & Temporary Files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+*.tmp
+*.temp
+*.bak

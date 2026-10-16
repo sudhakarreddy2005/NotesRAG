@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DocumentItem, Chunk } from "@/types/rag";
 import { chunkDocument } from "@/lib/knowledgeBase";
-import { PDFParse } from "pdf-parse";
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,23 +38,16 @@ export async function POST(req: NextRequest) {
       const isDocx = file.name.toLowerCase().endsWith(".docx");
 
       if (isPdf) {
-        // Bug B-3: pdf-parse@2.x uses LoadParameters interface where `data` accepts TypedArray.
-        // Pass Uint8Array (not raw Buffer) for correct API compatibility per pdf-parse@2.x spec.
-        let parser: PDFParse | null = null;
         try {
+          // Zero-dependency serverless PDF text extractor (runs cleanly on Vercel without DOMMatrix / canvas errors)
+          const { extractText } = await import("unpdf");
           const arrayBuffer = await file.arrayBuffer();
           const uint8 = new Uint8Array(arrayBuffer);
-          parser = new PDFParse({ data: uint8 });
-          // getText() returns TextResult — use .text for the full concatenated document string
-          const result = await parser.getText();
-          content = result?.text || "";
+          const { text } = await extractText(uint8);
+          content = Array.isArray(text) ? text.join("\n\n") : (text || "");
         } catch (pdfErr) {
           console.warn(`[WARN] Could not parse PDF ${file.name}:`, pdfErr);
           content = `[Document: ${file.name} - PDF text extraction failed]`;
-        } finally {
-          if (parser) {
-            await parser.destroy().catch(() => {});
-          }
         }
       } else if (isDocx) {
         try {

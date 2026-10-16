@@ -88,29 +88,60 @@ flowchart TD
 ## 📂 Project Structure
 
 ```text
-notesrag/
-├── app.py                     # Production CLI entry point & Interactive Q&A runner
-├── pyproject.toml             # Project metadata, dependencies & CLI script definition
-├── requirements.txt           # Standard pip requirement specifications
-├── uv.lock                    # Deterministic dependency lockfile (UV package manager)
-├── .env.example               # Environment variable configuration template
-├── .gitignore                 # Production-grade Git exclusions (caches, vector DBs, secrets)
-├── README.md                  # Comprehensive system documentation
+NotesRAG/
+├── app.py                         # Production CLI entry point & Interactive Q&A runner
+├── server.py                      # FastAPI REST API backend (FAISS indexing + Groq LPU synthesis)
+├── pyproject.toml                 # Python project configuration, dependencies & CLI script
+├── requirements.txt               # Python pip dependencies specification
+├── package.json                   # Root monorepo dev orchestrator scripts
+├── uv.lock                        # Deterministic Python lockfile (uv package manager)
+├── .env.example                   # Environment configuration template (API keys, ports, models)
+├── .gitignore                     # Production Git exclusions (vector DBs, uploads, secrets)
+├── README.md                      # Comprehensive system documentation
 │
-├── src/                       # Core modular package
-│   ├── __init__.py            # Package root & component exports
-│   ├── data_loader.py         # Multi-format document ingestion engine
-│   ├── embedding.py           # Document chunker & SentenceTransformer embedding pipeline
-│   ├── vectorstore.py         # Persistent FAISS vector store & similarity search
-│   └── search.py              # End-to-end RAG orchestrator with Groq LLM synthesis
+├── src/                           # Core Python RAG backend pipeline
+│   ├── __init__.py                # Package root & component exports
+│   ├── data_loader.py             # Multi-tier ingestion (PDF, DOCX, XLSX, TXT, CSV, JSON) + binary guards
+│   ├── embedding.py               # Document chunker & SentenceTransformers embedding generator
+│   ├── vectorstore.py             # Persistent FAISS vector store, L2 retrieval & storage
+│   └── search.py                  # End-to-end RAG orchestrator with Groq LLM grounded synthesis
 │
-├── data/                      # Input document repository
-│   ├── pdf/                   # Directory for PDF files (.gitkeep enabled)
-│   └── text_files/            # Clean sample text documents (ML & Python guides)
+├── frontend/                      # Next.js 16 + React 19 Web Interface
+│   ├── package.json               # Frontend dependencies (Next.js, React, Mammoth, Tailwind)
+│   ├── next.config.ts             # Next.js configuration and API rewrites
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── layout.tsx         # Root HTML layout and typography
+│   │   │   ├── page.tsx           # Main RAG dashboard (dropzone, live metrics, chat view)
+│   │   │   ├── globals.css        # Design system styles and Tailwind CSS
+│   │   │   └── api/
+│   │   │       ├── upload/        # Multi-file serverless upload & document parser
+│   │   │       ├── rag/           # Serverless Groq inference endpoint
+│   │   │       └── query/stream/  # Real-time streaming RAG inference route
+│   │   ├── components/
+│   │   │   ├── UploadView.tsx     # Drag-and-drop document upload view with multi-file manager
+│   │   │   ├── MinimalChatView.tsx # Chat interface with token metrics & grounding citations
+│   │   │   └── Icons.tsx          # UI SVG icon library
+│   │   ├── lib/
+│   │   │   ├── groq.ts            # Serverless Groq API client with context injection
+│   │   │   └── knowledgeBase.ts   # Document chunking and similarity relevance scoring
+│   │   └── types/
+│   │       └── rag.ts             # TypeScript schemas for documents, chunks & messages
+│   └── vercel.json                # Vercel deployment and routing rules
 │
-└── notebook/                  # Interactive experimentation & research
-    ├── document.ipynb         # Document schema & manipulation notebook
-    └── pdf_loader.ipynb       # Ingestion & chunking benchmarking notebook
+├── data/                          # Input documents repository
+│   ├── pdf/                       # PDF document storage (.gitkeep enabled)
+│   ├── docs/                      # Microsoft Word .docx storage (.gitkeep enabled)
+│   ├── sheets/                    # Excel .xlsx / CSV spreadsheet storage (.gitkeep enabled)
+│   └── text_files/                # Plain text, markdown, and code notes (.gitkeep enabled)
+│
+├── faiss_store/                   # Persistent FAISS vector index (runtime generated)
+│   ├── faiss.index                # Dense L2 vector similarity index
+│   └── metadata.pkl               # Serialized chunk text & document attribution metadata
+│
+└── notebook/                      # Interactive experimentation & research
+    ├── document.ipynb             # Document schema & manipulation notebook
+    └── pdf_loader.ipynb           # Ingestion & chunking benchmarking notebook
 ```
 
 ---

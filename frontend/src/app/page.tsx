@@ -176,14 +176,18 @@ export default function Home() {
         setActiveFileNames(names);
         setMessages([]);
 
-        // Async sync to local Python FAISS backend with clear_previous to guarantee isolation
+        // Await sync to local Python FAISS backend with clear_previous to guarantee isolation
         if (isBackendConnected) {
           const backendUrl =
             process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
-          fetch(`${backendUrl}/api/upload?clear_previous=true`, {
-            method: "POST",
-            body: formData,
-          }).catch(() => {});
+          try {
+            await fetch(`${backendUrl}/api/upload?clear_previous=true`, {
+              method: "POST",
+              body: formData,
+            });
+          } catch (pyErr) {
+            console.warn("Python backend sync failed:", pyErr);
+          }
         }
 
         return true;
@@ -194,6 +198,17 @@ export default function Home() {
       const names: string[] = [];
 
       for (const file of files) {
+        const lower = file.name.toLowerCase();
+        const isBinary = [
+          ".pdf", ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt",
+          ".zip", ".tar", ".gz", ".png", ".jpg", ".jpeg", ".mp4", ".mp3"
+        ].some((ext) => lower.endsWith(ext));
+
+        if (isBinary) {
+          console.warn(`Cannot read binary document ${file.name} directly in browser without server parsing.`);
+          continue;
+        }
+
         names.push(file.name);
         try {
           const text = await file.text();
@@ -249,14 +264,18 @@ export default function Home() {
           setUploadedChunks((prev) => [...prev, ...data.chunks]);
         }
 
-        // Sync to backend with clear_previous=false to append
+        // Await sync to backend with clear_previous=false to append
         if (isBackendConnected) {
           const backendUrl =
             process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
-          fetch(`${backendUrl}/api/upload?clear_previous=false`, {
-            method: "POST",
-            body: formData,
-          }).catch(() => {});
+          try {
+            await fetch(`${backendUrl}/api/upload?clear_previous=false`, {
+              method: "POST",
+              body: formData,
+            });
+          } catch (pyErr) {
+            console.warn("Python backend sync failed:", pyErr);
+          }
         }
 
         return true;
@@ -267,6 +286,17 @@ export default function Home() {
       const newNames: string[] = [];
 
       for (const file of files) {
+        const lower = file.name.toLowerCase();
+        const isBinary = [
+          ".pdf", ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt",
+          ".zip", ".tar", ".gz", ".png", ".jpg", ".jpeg", ".mp4", ".mp3"
+        ].some((ext) => lower.endsWith(ext));
+
+        if (isBinary) {
+          console.warn(`Cannot read binary document ${file.name} directly in browser without server parsing.`);
+          continue;
+        }
+
         newNames.push(file.name);
         try {
           const text = await file.text();

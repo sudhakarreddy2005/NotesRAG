@@ -63,6 +63,7 @@ NotesRAG is a **Retrieval-Augmented Generation system** with two parallel runtim
 - Full session persistence across page refreshes via `localStorage` (active files, chunks, and messages remain on refresh)
 - `pdf-parse@2.x` `Uint8Array` integration
 - Automated stale Next.js dev lock cleanup via `predev` in `package.json`
+- Single unified root `.gitignore` governing both Python backend and Next.js frontend
 - Vercel production build validated (1.9s build time, 0 errors)
 
 ### 🔄 In Progress / Next Actions (Phase 5)

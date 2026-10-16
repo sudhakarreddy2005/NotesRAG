@@ -93,6 +93,10 @@ data/pdf/*
 !data/pdf/.gitkeep
 data/text_files/*
 !data/text_files/.gitkeep
+data/docs/*
+!data/docs/.gitkeep
+data/sheets/*
+!data/sheets/.gitkeep
 data/uploads/
 
 # IDEs, Editors & AI Agent Caches

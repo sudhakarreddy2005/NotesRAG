@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
 
       let content = "";
       const isPdf = file.name.toLowerCase().endsWith(".pdf");
+      const isDocx = file.name.toLowerCase().endsWith(".docx");
 
       if (isPdf) {
         // Bug B-3: pdf-parse@2.x uses LoadParameters interface where `data` accepts TypedArray.
@@ -56,7 +57,33 @@ export async function POST(req: NextRequest) {
             await parser.destroy().catch(() => {});
           }
         }
+      } else if (isDocx) {
+        try {
+          // Robust Word .docx text extraction via mammoth
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const mammoth = require("mammoth");
+          const arrayBuffer = await file.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          const result = await mammoth.extractRawText({ buffer });
+          content = result?.value || "";
+        } catch (docxErr) {
+          console.warn(`[WARN] Could not parse DOCX ${file.name}:`, docxErr);
+          content = `[Document: ${file.name} - DOCX text extraction failed]`;
+        }
       } else {
+        const lower = file.name.toLowerCase();
+        const isBinary = [
+          ".zip", ".tar", ".gz", ".7z", ".rar", ".exe", ".bin",
+          ".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp4", ".mp3",
+          ".xlsx", ".pptx"
+        ].some((ext) => lower.endsWith(ext));
+
+        if (isBinary) {
+          console.warn(`[WARN] Skipping binary file without text extractor: ${file.name}`);
+          skipped.push(file.name);
+          continue;
+        }
+
         try {
           content = await file.text();
         } catch {

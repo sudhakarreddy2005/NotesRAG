@@ -208,27 +208,17 @@ def clear_session():
     """Clear all uploaded documents, purge the FAISS index, and reset the active session."""
     global rag_instance
     try:
-        pdf_dir = os.path.join("data", "pdf")
-        if os.path.exists(pdf_dir):
-            for f in os.listdir(pdf_dir):
-                if f != ".gitkeep":
-                    file_path = os.path.join(pdf_dir, f)
-                    if os.path.isfile(file_path):
-                        try:
-                            os.remove(file_path)
-                        except Exception:
-                            pass
-
-        txt_dir = os.path.join("data", "text_files")
-        if os.path.exists(txt_dir):
-            for f in os.listdir(txt_dir):
-                if f != ".gitkeep":
-                    file_path = os.path.join(txt_dir, f)
-                    if os.path.isfile(file_path):
-                        try:
-                            os.remove(file_path)
-                        except Exception:
-                            pass
+        data_dir = "data"
+        if os.path.exists(data_dir):
+            for root, _, files in os.walk(data_dir):
+                for f in files:
+                    if f != ".gitkeep":
+                        file_path = os.path.join(root, f)
+                        if os.path.isfile(file_path):
+                            try:
+                                os.remove(file_path)
+                            except Exception:
+                                pass
 
         if rag_instance and hasattr(rag_instance, "vectorstore"):
             rag_instance.vectorstore.clear()
@@ -288,6 +278,10 @@ def upload_documents(
 
         if ext == ".pdf":
             target_dir = os.path.join("data", "pdf")
+        elif ext in [".docx", ".doc"]:
+            target_dir = os.path.join("data", "docs")
+        elif ext in [".xlsx", ".xls", ".csv"]:
+            target_dir = os.path.join("data", "sheets")
         else:
             target_dir = os.path.join("data", "text_files")
 
@@ -310,7 +304,10 @@ def upload_documents(
     try:
         rag = get_rag()
         if all_loaded_docs:
-            rag.vectorstore.build_from_documents(all_loaded_docs)
+            if clear_previous:
+                rag.vectorstore.build_from_documents(all_loaded_docs)
+            else:
+                rag.vectorstore.append_documents(all_loaded_docs)
 
         return {
             "status": "success",

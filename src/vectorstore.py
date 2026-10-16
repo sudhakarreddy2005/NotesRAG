@@ -33,6 +33,8 @@ class FaissVectorStore:
             print("[WARNING] No documents provided to build vector store.")
             return
 
+        # Start with a fresh index when building from document set
+        self.clear()
         print(f"[INFO] Building vector store from {len(documents)} raw document(s)...")
         emb_pipe = EmbeddingPipeline(
             model_name=self.embedding_model,

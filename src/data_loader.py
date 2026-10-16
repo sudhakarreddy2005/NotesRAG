@@ -1,13 +1,135 @@
+import os
+import zipfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, List
+from langchain_core.documents import Document
 from langchain_community.document_loaders import (
     CSVLoader,
-    Docx2txtLoader,
     JSONLoader,
-    PyPDFLoader,
     TextLoader,
 )
-from langchain_community.document_loaders.excel import UnstructuredExcelLoader
+
+BINARY_EXTENSIONS = {
+    ".pdf", ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt",
+    ".zip", ".tar", ".gz", ".7z", ".rar", ".bz2",
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".tiff",
+    ".mp3", ".wav", ".ogg", ".mp4", ".avi", ".mkv", ".mov",
+    ".bin", ".exe", ".dll", ".so", ".dylib", ".iso", ".pyc"
+}
+
+
+def is_binary_file(path: Path) -> bool:
+    """Detect if a file is binary by extension or null-byte inspection."""
+    if path.suffix.lower() in BINARY_EXTENSIONS:
+        return True
+    try:
+        with open(path, "rb") as f:
+            chunk = f.read(8192)
+            if b"\x00" in chunk:
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def load_docx_document(path: Path) -> List[Document]:
+    """Robust multi-tier DOCX loader:
+    1. Try Docx2txtLoader (LangChain)
+    2. Try python-docx
+    3. Built-in zero-dependency ZipFile + XML parser
+    """
+    # 1. Docx2txtLoader
+    try:
+        from langchain_community.document_loaders import Docx2txtLoader
+        loader = Docx2txtLoader(str(path))
+        docs = loader.load()
+        if docs and any(d.page_content.strip() for d in docs):
+            return docs
+    except Exception as e:
+        print(f"[DEBUG] Docx2txtLoader failed for {path.name}: {e}")
+
+    # 2. python-docx
+    try:
+        import docx
+        doc = docx.Document(str(path))
+        lines = []
+        for p in doc.paragraphs:
+            if p.text.strip():
+                lines.append(p.text.strip())
+        for table in doc.tables:
+            for row in table.rows:
+                cells = [c.text.strip() for c in row.cells if c.text.strip()]
+                if cells:
+                    lines.append(" | ".join(cells))
+        full_text = "\n\n".join(lines)
+        if full_text.strip():
+            return [Document(page_content=full_text, metadata={"source": str(path)})]
+    except Exception as e:
+        print(f"[DEBUG] python-docx failed for {path.name}: {e}")
+
+    # 3. Built-in standard library fallback
+    try:
+        with zipfile.ZipFile(str(path)) as z:
+            if "word/document.xml" in z.namelist():
+                xml_data = z.read("word/document.xml")
+                root = ET.fromstring(xml_data)
+                paras = []
+                for p in root.iter("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p"):
+                    texts = [n.text for n in p.iter("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t") if n.text]
+                    if texts:
+                        paras.append("".join(texts).strip())
+                full_text = "\n\n".join(p for p in paras if p)
+                if full_text.strip():
+                    return [Document(page_content=full_text, metadata={"source": str(path)})]
+    except Exception as e:
+        print(f"[ERROR] Built-in zipfile DOCX parser failed for {path.name}: {e}")
+
+    raise ValueError(f"Unable to extract readable text from Word document: {path.name}")
+
+
+def load_pdf_document(path: Path) -> List[Document]:
+    """Robust PDF loader with PyMuPDF and PyPDF fallback."""
+    try:
+        from langchain_community.document_loaders import PyMuPDFLoader
+        loader = PyMuPDFLoader(str(path))
+        docs = loader.load()
+        if docs:
+            return docs
+    except Exception:
+        pass
+
+    try:
+        from langchain_community.document_loaders import PyPDFLoader
+        loader = PyPDFLoader(str(path))
+        docs = loader.load()
+        if docs:
+            return docs
+    except Exception as e:
+        print(f"[ERROR] Failed to load PDF {path.name}: {e}")
+
+    return []
+
+
+def load_xlsx_document(path: Path) -> List[Document]:
+    """Extract text from Excel spreadsheets (.xlsx) using openpyxl."""
+    try:
+        import openpyxl
+        wb = openpyxl.load_workbook(str(path), data_only=True)
+        lines = []
+        for sheet in wb.sheetnames:
+            ws = wb[sheet]
+            lines.append(f"=== Sheet: {sheet} ===")
+            for row in ws.iter_rows(values_only=True):
+                if any(cell is not None and str(cell).strip() != "" for cell in row):
+                    row_str = " | ".join(str(cell).strip() if cell is not None else "" for cell in row)
+                    lines.append(row_str)
+        text = "\n".join(lines)
+        if text.strip():
+            return [Document(page_content=text, metadata={"source": str(path)})]
+    except Exception as e:
+        print(f"[ERROR] Failed to load Excel file {path.name}: {e}")
+    return []
 
 
 def load_all_documents(data_dir: str = "data") -> List[Any]:
@@ -30,8 +152,7 @@ def load_all_documents(data_dir: str = "data") -> List[Any]:
         print(f"[INFO] Found {len(pdf_files)} PDF file(s).")
     for pdf_file in pdf_files:
         try:
-            loader = PyPDFLoader(str(pdf_file))
-            loaded = loader.load()
+            loaded = load_pdf_document(pdf_file)
             for doc in loaded:
                 doc.metadata["source_name"] = pdf_file.name
                 doc.metadata["file_type"] = "pdf"
@@ -62,8 +183,7 @@ def load_all_documents(data_dir: str = "data") -> List[Any]:
         print(f"[INFO] Found {len(docx_files)} DOCX file(s).")
     for docx_file in docx_files:
         try:
-            loader = Docx2txtLoader(str(docx_file))
-            loaded = loader.load()
+            loaded = load_docx_document(docx_file)
             for doc in loaded:
                 doc.metadata["source_name"] = docx_file.name
                 doc.metadata["file_type"] = "docx"
@@ -110,8 +230,7 @@ def load_all_documents(data_dir: str = "data") -> List[Any]:
         print(f"[INFO] Found {len(xlsx_files)} XLSX file(s).")
     for xlsx_file in xlsx_files:
         try:
-            loader = UnstructuredExcelLoader(str(xlsx_file))
-            loaded = loader.load()
+            loaded = load_xlsx_document(xlsx_file)
             for doc in loaded:
                 doc.metadata["source_name"] = xlsx_file.name
                 doc.metadata["file_type"] = "xlsx"
@@ -125,23 +244,23 @@ def load_all_documents(data_dir: str = "data") -> List[Any]:
 
 
 def load_single_document(file_path: str) -> List[Any]:
-    """Load any document kind from file_path into LangChain Document format."""
-    from langchain_core.documents import Document
-
+    """Load any supported document kind from file_path into LangChain Document format.
+    Guarantees that binary archives and files are never loaded as raw text bytes.
+    """
     path = Path(file_path).resolve()
     ext = path.suffix.lower()
     documents: List[Any] = []
 
     try:
         if ext == ".pdf":
-            loader = PyPDFLoader(str(path))
-            documents = loader.load()
+            documents = load_pdf_document(path)
         elif ext in [".txt", ".md", ".text", ".py", ".js", ".ts", ".html", ".css", ".yaml", ".yml", ".toml", ".sh"]:
             loader = TextLoader(str(path), encoding="utf-8")
             documents = loader.load()
         elif ext == ".docx":
-            loader = Docx2txtLoader(str(path))
-            documents = loader.load()
+            documents = load_docx_document(path)
+        elif ext in [".xlsx", ".xls"]:
+            documents = load_xlsx_document(path)
         elif ext == ".json":
             loader = JSONLoader(str(path), jq_schema=".", text_content=False)
             documents = loader.load()
@@ -149,21 +268,19 @@ def load_single_document(file_path: str) -> List[Any]:
             loader = CSVLoader(str(path))
             documents = loader.load()
         else:
-            # Universal fallback: read text with errors ignored
-            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            # Strict safety guard: never open binary files as text
+            if is_binary_file(path):
+                print(f"[ERROR] Refusing to treat binary file as plain text: {path.name}")
+                return []
+
+            # Universal text fallback for other plain-text files
+            with open(path, "r", encoding="utf-8", errors="replace") as f:
                 content = f.read()
             if content.strip():
                 documents = [Document(page_content=content, metadata={"source": str(path)})]
     except Exception as e:
-        print(f"[WARN] Specific loader failed for {path.name}: {e}. Falling back to universal text reader.")
-        try:
-            with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                content = f.read()
-            if content.strip():
-                documents = [Document(page_content=content, metadata={"source": str(path)})]
-        except Exception as fallback_err:
-            print(f"[ERROR] Failed to read {path.name}: {fallback_err}")
-            return []
+        print(f"[ERROR] Failed to load {path.name}: {e}")
+        return []
 
     for doc in documents:
         doc.metadata["source_name"] = path.name

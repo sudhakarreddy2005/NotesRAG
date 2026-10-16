@@ -105,6 +105,7 @@
 | 5.10 | Session isolation & purge (`POST /api/clear`) | ✅ | High | Old PDFs wiped on upload/session reset, strict active_files query filtering |
 | 5.11 | Responsive Grid Layout & UI Polish | ✅ | High | Responsive grid for citations, document cards, suggestions & features |
 | 5.12 | Dummy content removal | ✅ | High | Purged sample files, dummy knowledge base, and dummy prompt suggestions |
+| 5.16 | Session persistence across page refreshes | ✅ | High | localStorage persistence for active files, chunks, and messages without returning to home |
 | 5.13 | Cross-document comparison mode | 🔮 | Low | Side-by-side diff of two document answers |
 | 5.14 | PDF page-level source linking | 🔮 | Low | Click chunk → open PDF at page number |
 | 5.15 | DOCX upload support in Next.js serverless route | 🔮 | Low | Currently only PDF + text in serverless |
@@ -116,7 +117,7 @@
 | # | Issue | Severity | Status |
 |---|---|---|---|
 | B-3 | `pdf-parse@2.x` API fixed — now uses `Uint8Array` via `LoadParameters.data` + correct `TextResult.text` | — | ✅ Fixed |
-| B-4 | 4MB client-side file size guard added in `UploadView.tsx` + server-side check in upload route | — | ✅ Fixed |
+| B-4 | File size limit upgraded to 50MB (industry standard matching OpenAI ChatGPT) on client and server | — | ✅ Fixed |
 | B-1 | `CORS allow_origins=["*"]` in `server.py` is too permissive for production | Medium | 📌 Planned fix in Phase 5 |
 | B-2 | (Resolved) Typewriter `setInterval` cleaned up — replaced by real SSE streaming | — | ✅ Fixed |
 | B-5 | `generateIntelligentFallback` in `groq.ts` uses hardcoded keyword matching — brittle for novel queries | Low | 🔮 Replace with proper offline embedding fallback |

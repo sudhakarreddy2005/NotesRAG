@@ -27,7 +27,7 @@ export function UploadView({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const MAX_FILE_SIZE_BYTES = 4 * 1024 * 1024; // 4MB — Vercel serverless payload limit
+  const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB — Industry standard limit (matches OpenAI ChatGPT standard)
 
   const startUpload = async (filesToUpload: File[]) => {
     if (!filesToUpload || filesToUpload.length === 0) return;
@@ -40,7 +40,7 @@ export function UploadView({
         inProgress: false,
         stage: "",
         progress: 0,
-        error: `File(s) exceed 4MB limit: ${oversized.map((f) => f.name).join(", ")}. Please upload files under 4MB each.`,
+        error: `File(s) exceed 50MB industry limit: ${oversized.map((f) => f.name).join(", ")}. Please upload files under 50MB each.`,
       });
       return;
     }

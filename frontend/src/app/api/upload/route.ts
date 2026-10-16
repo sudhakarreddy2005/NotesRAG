@@ -26,10 +26,10 @@ export async function POST(req: NextRequest) {
     const skipped: string[] = [];
 
     for (const file of allFiles) {
-      // Bug B-4: Guard against Vercel 4.5MB serverless payload limit
-      const MAX_SIZE_BYTES = 4 * 1024 * 1024; // 4 MB
+      // Industry standard file size limit (50MB, matching OpenAI ChatGPT standard)
+      const MAX_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
       if (file.size > MAX_SIZE_BYTES) {
-        console.warn(`[WARN] Skipping ${file.name}: ${file.size} bytes exceeds 4MB serverless limit.`);
+        console.warn(`[WARN] Skipping ${file.name}: ${file.size} bytes exceeds 50MB limit.`);
         skipped.push(file.name);
         continue;
       }

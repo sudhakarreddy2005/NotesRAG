@@ -59,10 +59,11 @@ NotesRAG is a **Retrieval-Augmented Generation system** with two parallel runtim
 - Responsive Grid layouts across upload features, active documents, inquiries, and citation cards
 - Rich markdown formatting with `react-markdown` + `remark-gfm`
 - Purged all dummy mock documents and sample notes
-- 4MB upload payload guard on client and server
+- 50MB upload payload support (matching OpenAI ChatGPT industry standard) on client and server
+- Full session persistence across page refreshes via `localStorage` (active files, chunks, and messages remain on refresh)
 - `pdf-parse@2.x` `Uint8Array` integration
 - Automated stale Next.js dev lock cleanup via `predev` in `package.json`
-- Vercel production build validated (7.6s build time, 0 errors)
+- Vercel production build validated (1.9s build time, 0 errors)
 
 ### 🔄 In Progress / Next Actions (Phase 5)
 - Task 5.3: User-supplied Groq API key input modal (`localStorage` persistence).

@@ -6,6 +6,10 @@ import { MinimalChatView } from "../components/MinimalChatView";
 import { ChatMessage, Chunk, DocumentItem } from "../types/rag";
 import { chunkDocument } from "../lib/knowledgeBase";
 
+const STORAGE_FILES_KEY = "notesrag_active_files";
+const STORAGE_CHUNKS_KEY = "notesrag_uploaded_chunks";
+const STORAGE_MESSAGES_KEY = "notesrag_messages";
+
 export default function Home() {
   const [activeFileNames, setActiveFileNames] = useState<string[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -13,8 +17,83 @@ export default function Home() {
   const [isBackendConnected, setIsBackendConnected] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [uploadedChunks, setUploadedChunks] = useState<Chunk[]>([]);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // 1. Restore active session from localStorage on initial load / refresh
+  useEffect(() => {
+    try {
+      const savedFiles = localStorage.getItem(STORAGE_FILES_KEY);
+      const savedChunks = localStorage.getItem(STORAGE_CHUNKS_KEY);
+      const savedMessages = localStorage.getItem(STORAGE_MESSAGES_KEY);
+
+      if (savedFiles) {
+        const parsedFiles = JSON.parse(savedFiles);
+        if (Array.isArray(parsedFiles) && parsedFiles.length > 0) {
+          setActiveFileNames(parsedFiles);
+        }
+      }
+      if (savedChunks) {
+        const parsedChunks = JSON.parse(savedChunks);
+        if (Array.isArray(parsedChunks) && parsedChunks.length > 0) {
+          setUploadedChunks(parsedChunks);
+        }
+      }
+      if (savedMessages) {
+        const parsedMessages = JSON.parse(savedMessages);
+        if (Array.isArray(parsedMessages) && parsedMessages.length > 0) {
+          setMessages(parsedMessages);
+        }
+      }
+    } catch (err) {
+      console.warn("Could not restore session from localStorage:", err);
+    } finally {
+      setIsHydrated(true);
+    }
+  }, []);
+
+  // 2. Persist active file names whenever updated
+  useEffect(() => {
+    if (!isHydrated) return;
+    try {
+      if (activeFileNames.length > 0) {
+        localStorage.setItem(STORAGE_FILES_KEY, JSON.stringify(activeFileNames));
+      } else {
+        localStorage.removeItem(STORAGE_FILES_KEY);
+      }
+    } catch (e) {
+      console.warn("Could not persist active files to localStorage:", e);
+    }
+  }, [activeFileNames, isHydrated]);
+
+  // 3. Persist uploaded document chunks whenever updated
+  useEffect(() => {
+    if (!isHydrated) return;
+    try {
+      if (uploadedChunks.length > 0) {
+        localStorage.setItem(STORAGE_CHUNKS_KEY, JSON.stringify(uploadedChunks));
+      } else {
+        localStorage.removeItem(STORAGE_CHUNKS_KEY);
+      }
+    } catch (e) {
+      console.warn("Could not persist chunks to localStorage:", e);
+    }
+  }, [uploadedChunks, isHydrated]);
+
+  // 4. Persist messages whenever updated
+  useEffect(() => {
+    if (!isHydrated) return;
+    try {
+      if (messages.length > 0) {
+        localStorage.setItem(STORAGE_MESSAGES_KEY, JSON.stringify(messages));
+      } else {
+        localStorage.removeItem(STORAGE_MESSAGES_KEY);
+      }
+    } catch (e) {
+      console.warn("Could not persist messages to localStorage:", e);
+    }
+  }, [messages, isHydrated]);
 
   // Apply Theme to <html> element
   useEffect(() => {
@@ -237,6 +316,12 @@ export default function Home() {
     setUploadedChunks([]);
     setIsLoading(false);
 
+    try {
+      localStorage.removeItem(STORAGE_FILES_KEY);
+      localStorage.removeItem(STORAGE_CHUNKS_KEY);
+      localStorage.removeItem(STORAGE_MESSAGES_KEY);
+    } catch {}
+
     // Call Python backend to clear files and FAISS vector index
     if (isBackendConnected) {
       const backendUrl =
@@ -249,6 +334,9 @@ export default function Home() {
 
   const handleClearChat = () => {
     setMessages([]);
+    try {
+      localStorage.removeItem(STORAGE_MESSAGES_KEY);
+    } catch {}
   };
 
   // Send Question to RAG Backend
@@ -412,6 +500,15 @@ export default function Home() {
       abortControllerRef.current = null;
     }
   };
+
+  // Avoid flash of upload screen during localStorage rehydration on page refresh
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950">

@@ -42,9 +42,28 @@ class RAGSearch:
         self.llm = ChatGroq(groq_api_key=groq_api_key, model_name=model_name)
         print(f"[INFO] Groq LLM initialized with model: {model_name}")
 
-    def retrieve_context(self, query: str, top_k: int = 5) -> List[Dict]:
-        """Retrieve relevant document chunks for the query."""
-        return self.vectorstore.query(query, top_k=top_k)
+    def retrieve_context(self, query: str, top_k: int = 5, active_files: Optional[List[str]] = None) -> List[Dict]:
+        """Retrieve relevant document chunks for the query, optionally strictly filtered to active_files."""
+        if not self.vectorstore or self.vectorstore.index is None or self.vectorstore.index.ntotal == 0:
+            return []
+        
+        # If filtering by active files, search with a higher candidate pool to find matching chunks
+        fetch_k = top_k * 4 if active_files else top_k
+        raw_results = self.vectorstore.query(query, top_k=fetch_k)
+        
+        if not active_files:
+            return raw_results[:top_k]
+            
+        normalized = {os.path.basename(f).lower() for f in active_files}
+        filtered: List[Dict] = []
+        for r in raw_results:
+            source = r.get("metadata", {}).get("source", "")
+            base = os.path.basename(source).lower()
+            if base in normalized:
+                filtered.append(r)
+                if len(filtered) >= top_k:
+                    break
+        return filtered
 
     def search_and_summarize(self, query: str, top_k: int = 5) -> str:
         """Retrieve context and generate an augmented answer with Groq."""

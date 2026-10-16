@@ -13,6 +13,7 @@
 
 ## 📑 Table of Contents
 
+- [Documentation Suite](#-documentation-suite)
 - [Architecture & Workflow](#-architecture--workflow)
 - [Key Features](#-key-features)
 - [Project Structure](#-project-structure)
@@ -24,6 +25,21 @@
 - [Troubleshooting & FAQ](#-troubleshooting--faq)
 - [Contributing](#-contributing)
 - [License](#-license)
+
+---
+
+## 📚 Documentation Suite
+
+The project ships with a full engineering documentation set:
+
+| Document | Purpose |
+|---|---|
+| [`prd.md`](prd.md) | Product Requirements — vision, user personas, functional/non-functional requirements, KPIs, roadmap |
+| [`architecture.md`](architecture.md) | System Architecture — dual-runtime diagrams, module maps, data flow, deployment topology |
+| [`rules.md`](rules.md) | Coding Rules — Python, TypeScript, CSS, Git, security, and performance standards |
+| [`design.md`](design.md) | UI/UX Direction — color system, typography, layout blueprints, animations, component specs |
+| [`tasks.md`](tasks.md) | Tasks & Progress — phased task tracker with ✅/📌/🔮 status and known bugs |
+| [`memory.md`](memory.md) | Project Context — architectural decisions, gotchas, current state, next actions |
 
 ---
 

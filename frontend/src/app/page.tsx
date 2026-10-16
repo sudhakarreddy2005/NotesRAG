@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { UploadView } from "../components/UploadView";
 import { MinimalChatView } from "../components/MinimalChatView";
 import { ChatMessage, Chunk, DocumentItem } from "../types/rag";
-import { DEFAULT_DOCUMENTS, chunkDocument } from "../lib/knowledgeBase";
+import { chunkDocument } from "../lib/knowledgeBase";
 
 export default function Home() {
   const [activeFileNames, setActiveFileNames] = useState<string[]>([]);
@@ -26,12 +26,11 @@ export default function Home() {
     }
   }, [theme]);
 
-  // Toggle Theme
   const toggleTheme = () => {
     setTheme((prev) => (prev === "dark" ? "light" : "dark"));
   };
 
-  // Check Python FastAPI backend health (only when local or NEXT_PUBLIC_BACKEND_URL is set)
+  // Check Python FastAPI backend health
   const checkBackendHealth = useCallback(async (): Promise<boolean> => {
     if (typeof window === "undefined") return false;
     const isLocal =
@@ -73,7 +72,7 @@ export default function Home() {
     };
   }, [checkBackendHealth]);
 
-  // Handle Multi-File Upload
+  // Handle Multi-File Upload with Fresh Session Isolation
   const handleFilesUpload = async (files: File[]): Promise<boolean> => {
     if (!files || files.length === 0) return false;
 
@@ -83,7 +82,7 @@ export default function Home() {
         formData.append("files", file);
       });
 
-      // 1. Process via Next.js Serverless route (works 100% on Vercel & locally in <200ms)
+      // 1. Process via Next.js Serverless route
       const serverlessRes = await fetch("/api/upload", {
         method: "POST",
         body: formData,
@@ -98,11 +97,11 @@ export default function Home() {
         setActiveFileNames(names);
         setMessages([]);
 
-        // Async sync to local Python FAISS backend if connected
+        // Async sync to local Python FAISS backend with clear_previous to guarantee isolation
         if (isBackendConnected) {
           const backendUrl =
             process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
-          fetch(`${backendUrl}/api/upload`, {
+          fetch(`${backendUrl}/api/upload?clear_previous=true`, {
             method: "POST",
             body: formData,
           }).catch(() => {});
@@ -146,15 +145,75 @@ export default function Home() {
     }
   };
 
+  // Handle adding more files to the current active session
+  const handleAddFiles = async (files: File[]): Promise<boolean> => {
+    if (!files || files.length === 0) return false;
 
-  // Handle Sample File Click
-  const handleSampleSelected = (sampleName: string) => {
-    setActiveFileNames([sampleName]);
-    setMessages([]);
+    try {
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append("files", file);
+      });
 
-    const found = DEFAULT_DOCUMENTS.find((d) => d.name === sampleName);
-    if (found) {
-      setUploadedChunks(chunkDocument(found));
+      // 1. Process via Next.js Serverless route
+      const serverlessRes = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (serverlessRes.ok) {
+        const data = await serverlessRes.json();
+        const incomingNames: string[] = data.filenames || files.map((f) => f.name);
+
+        setActiveFileNames((prev) => Array.from(new Set([...prev, ...incomingNames])));
+        if (data.chunks && data.chunks.length > 0) {
+          setUploadedChunks((prev) => [...prev, ...data.chunks]);
+        }
+
+        // Sync to backend with clear_previous=false to append
+        if (isBackendConnected) {
+          const backendUrl =
+            process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+          fetch(`${backendUrl}/api/upload?clear_previous=false`, {
+            method: "POST",
+            body: formData,
+          }).catch(() => {});
+        }
+
+        return true;
+      }
+
+      // 2. Client-side fallback
+      const newChunks: Chunk[] = [];
+      const newNames: string[] = [];
+
+      for (const file of files) {
+        newNames.push(file.name);
+        try {
+          const text = await file.text();
+          const newDoc: DocumentItem = {
+            id: `upload-${file.name}-${Date.now()}`,
+            name: file.name,
+            type: file.type || "text/plain",
+            sizeBytes: file.size,
+            chunkCount: Math.max(1, Math.round(text.length / 500)),
+            content: text,
+            createdAt: new Date().toISOString(),
+            isDefault: false,
+          };
+          const chunks = chunkDocument(newDoc);
+          newChunks.push(...chunks);
+        } catch (readErr) {
+          console.warn(`Could not read text for ${file.name}:`, readErr);
+        }
+      }
+
+      setActiveFileNames((prev) => Array.from(new Set([...prev, ...newNames])));
+      setUploadedChunks((prev) => [...prev, ...newChunks]);
+      return true;
+    } catch (err) {
+      console.error("Add files error:", err);
+      return false;
     }
   };
 
@@ -165,6 +224,31 @@ export default function Home() {
       abortControllerRef.current = null;
     }
     setIsLoading(false);
+  };
+
+  // Start a completely fresh new session
+  const handleNewSession = async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setMessages([]);
+    setActiveFileNames([]);
+    setUploadedChunks([]);
+    setIsLoading(false);
+
+    // Call Python backend to clear files and FAISS vector index
+    if (isBackendConnected) {
+      const backendUrl =
+        process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+      fetch(`${backendUrl}/api/clear`, {
+        method: "POST",
+      }).catch(() => {});
+    }
+  };
+
+  const handleClearChat = () => {
+    setMessages([]);
   };
 
   // Send Question to RAG Backend
@@ -183,7 +267,7 @@ export default function Home() {
     abortControllerRef.current = controller;
 
     try {
-      // If Python backend is connected, query Python server
+      // --- Path A: Python FastAPI backend (FAISS + Groq) ---
       if (isBackendConnected) {
         const backendUrl =
           process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
@@ -194,6 +278,7 @@ export default function Home() {
           body: JSON.stringify({
             query,
             top_k: 4,
+            active_files: activeFileNames,
           }),
         });
 
@@ -215,50 +300,110 @@ export default function Home() {
         }
       }
 
-      // Edge API fallback
-      const activeChunks =
-        uploadedChunks.length > 0
-          ? uploadedChunks
-          : DEFAULT_DOCUMENTS.flatMap((d) => chunkDocument(d));
+      // --- Path B: Serverless SSE streaming ---
+      if (uploadedChunks.length === 0) {
+        throw new Error("No documents loaded in this session. Please upload a document first.");
+      }
 
-      const res = await fetch("/api/rag", {
+      const sseRes = await fetch("/api/query/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
         body: JSON.stringify({
           query,
           topK: 4,
-          chunks: activeChunks,
+          chunks: uploadedChunks,
         }),
       });
 
-      if (!res.ok) {
-        throw new Error(`API error: ${res.status}`);
+      if (!sseRes.ok || !sseRes.body) {
+        throw new Error(`Stream error: ${sseRes.status}`);
       }
 
-      const data = await res.json();
-      const assistantMsg: ChatMessage = {
-        id: `msg-${Date.now()}-asst`,
+      // Build a placeholder assistant message that we update incrementally
+      const asstId = `msg-${Date.now()}-asst`;
+      const asstMsg: ChatMessage = {
+        id: asstId,
         role: "assistant",
-        content: data.answer,
+        content: "",
         timestamp: Date.now(),
-        retrievedChunks: data.retrievedChunks || [],
-        latencyMs: data.latencyMs,
-        modelUsed: data.model,
+        retrievedChunks: [],
         sourceMode: "vercel-cloud",
       };
+      setMessages((prev) => [...prev, asstMsg]);
 
-      setMessages((prev) => [...prev, assistantMsg]);
+      const reader = sseRes.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let fullContent = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const raw = line.slice(6).trim();
+          try {
+            const event = JSON.parse(raw) as {
+              type: string;
+              content?: string;
+              chunks?: Chunk[];
+              retrieval?: number;
+              inference?: number;
+              total?: number;
+              model?: string;
+              message?: string;
+            };
+
+            if (event.type === "chunk" && event.content) {
+              fullContent += event.content;
+              setMessages((prev) =>
+                prev.map((m) => (m.id === asstId ? { ...m, content: fullContent } : m))
+              );
+            } else if (event.type === "citations" && event.chunks) {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === asstId ? { ...m, retrievedChunks: event.chunks } : m
+                )
+              );
+            } else if (event.type === "latency") {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === asstId
+                    ? {
+                        ...m,
+                        latencyMs: {
+                          retrieval: event.retrieval ?? 0,
+                          inference: event.inference ?? 0,
+                          total: event.total ?? 0,
+                        },
+                        modelUsed: event.model,
+                      }
+                    : m
+                )
+              );
+            } else if (event.type === "error") {
+              throw new Error(event.message || "Stream error");
+            }
+          } catch {
+            // Malformed SSE line — skip
+          }
+        }
+      }
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === "AbortError") {
-        // Request aborted by user clicking stop
         return;
       }
       const errMsg = err instanceof Error ? err.message : "Error querying model";
       const errorMsg: ChatMessage = {
         id: `msg-${Date.now()}-err`,
         role: "assistant",
-        content: `**Error**: ${errMsg}. Please check backend connection.`,
+        content: `**Error**: ${errMsg}. Please check your connection or try again.`,
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -268,21 +413,11 @@ export default function Home() {
     }
   };
 
-  const handleClearChat = () => {
-    setMessages([]);
-  };
-
-  const handleUploadNewFile = () => {
-    setActiveFileNames([]);
-    setMessages([]);
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950">
       {activeFileNames.length === 0 ? (
         <UploadView
           onFilesSelected={handleFilesUpload}
-          onSampleSelected={handleSampleSelected}
           isBackendConnected={isBackendConnected}
         />
       ) : (
@@ -293,7 +428,8 @@ export default function Home() {
           onSendMessage={handleSendMessage}
           onStopGeneration={handleStopGeneration}
           onClearChat={handleClearChat}
-          onUploadNewFile={handleUploadNewFile}
+          onNewSession={handleNewSession}
+          onAddFiles={handleAddFiles}
           isBackendConnected={isBackendConnected}
           theme={theme}
           onToggleTheme={toggleTheme}

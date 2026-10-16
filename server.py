@@ -52,6 +52,7 @@ class QueryRequest(BaseModel):
     query: str
     top_k: Optional[int] = 4
     model: Optional[str] = None
+    active_files: Optional[List[str]] = None
 
 
 @app.get("/api/health")
@@ -80,9 +81,9 @@ def query_rag(req: QueryRequest):
 
     top_k = req.top_k or 4
 
-    # 1. Retrieve context
+    # 1. Retrieve context (filtered by active session files if provided)
     start_ret = time.time()
-    raw_results = rag.retrieve_context(req.query, top_k=top_k)
+    raw_results = rag.retrieve_context(req.query, top_k=top_k, active_files=req.active_files)
     retrieval_ms = round((time.time() - start_ret) * 1000, 2)
 
     # Format chunks for frontend
@@ -202,12 +203,61 @@ def rebuild_index():
         raise HTTPException(status_code=500, detail=f"Failed to rebuild index: {str(e)}")
 
 
+@app.post("/api/clear")
+def clear_session():
+    """Clear all uploaded documents, purge the FAISS index, and reset the active session."""
+    global rag_instance
+    try:
+        pdf_dir = os.path.join("data", "pdf")
+        if os.path.exists(pdf_dir):
+            for f in os.listdir(pdf_dir):
+                if f != ".gitkeep":
+                    file_path = os.path.join(pdf_dir, f)
+                    if os.path.isfile(file_path):
+                        try:
+                            os.remove(file_path)
+                        except Exception:
+                            pass
+
+        txt_dir = os.path.join("data", "text_files")
+        if os.path.exists(txt_dir):
+            for f in os.listdir(txt_dir):
+                if f != ".gitkeep":
+                    file_path = os.path.join(txt_dir, f)
+                    if os.path.isfile(file_path):
+                        try:
+                            os.remove(file_path)
+                        except Exception:
+                            pass
+
+        if rag_instance and hasattr(rag_instance, "vectorstore"):
+            rag_instance.vectorstore.clear()
+        else:
+            faiss_dir = "faiss_store"
+            for fname in ["faiss.index", "metadata.pkl"]:
+                p = os.path.join(faiss_dir, fname)
+                if os.path.exists(p):
+                    try:
+                        os.remove(p)
+                    except Exception:
+                        pass
+
+        rag_instance = None
+        return {
+            "status": "success",
+            "message": "Session cleared. All uploaded files and FAISS indices removed.",
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to clear session: {str(e)}")
+
+
 @app.post("/api/upload")
 def upload_documents(
     files: Optional[List[UploadFile]] = File(default=None),
     file: Optional[UploadFile] = File(default=None),
+    clear_previous: bool = True,
 ):
-    """Upload one or multiple documents of any kind, save to data/, and incrementally index into FAISS."""
+    """Upload one or multiple documents of any kind, save to data/, and index into FAISS for this session."""
     all_incoming: List[UploadFile] = []
     if files:
         all_incoming.extend(files)
@@ -216,6 +266,12 @@ def upload_documents(
 
     if not all_incoming:
         raise HTTPException(status_code=400, detail="No files provided for upload")
+
+    global rag_instance
+
+    # If starting a fresh session upload, wipe previous files and index
+    if clear_previous:
+        clear_session()
 
     processed_names: List[str] = []
     all_loaded_docs: List[Any] = []
@@ -250,11 +306,11 @@ def upload_documents(
         except Exception as e:
             print(f"[WARN] Failed to load {filename}: {e}")
 
-    # Append all loaded chunks to FAISS vector store
+    # Build or append all loaded chunks to FAISS vector store
     try:
         rag = get_rag()
         if all_loaded_docs:
-            rag.vectorstore.append_documents(all_loaded_docs)
+            rag.vectorstore.build_from_documents(all_loaded_docs)
 
         return {
             "status": "success",
@@ -262,7 +318,7 @@ def upload_documents(
             "totalFiles": len(processed_names),
             "totalChunks": len(all_loaded_docs),
             "sizeBytes": total_bytes,
-            "message": f"Successfully ingested and indexed {len(processed_names)} file(s) into FAISS.",
+            "message": f"Successfully ingested and indexed {len(processed_names)} file(s) into FAISS for this session.",
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to index documents: {str(e)}")

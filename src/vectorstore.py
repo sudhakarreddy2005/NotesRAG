@@ -93,10 +93,28 @@ class FaissVectorStore:
         print(f"[INFO] Loaded FAISS index ({self.index.ntotal} vectors) and metadata from '{self.persist_dir}'.")
         return True
 
+    def clear(self) -> None:
+        """Clear all indexed vectors and metadata both in-memory and on disk."""
+        self.index = None
+        self.metadata = []
+        faiss_path = os.path.join(self.persist_dir, "faiss.index")
+        meta_path = os.path.join(self.persist_dir, "metadata.pkl")
+        if os.path.exists(faiss_path):
+            try:
+                os.remove(faiss_path)
+            except Exception:
+                pass
+        if os.path.exists(meta_path):
+            try:
+                os.remove(meta_path)
+            except Exception:
+                pass
+        print(f"[INFO] Cleared FAISS vector store in '{self.persist_dir}'.")
+
     def search(self, query_embedding: np.ndarray, top_k: int = 5) -> List[Dict[str, Any]]:
         """Perform nearest neighbor search using query embedding."""
-        if self.index is None:
-            raise ValueError("Vector index is not initialized or loaded. Call load() or build_from_documents() first.")
+        if self.index is None or self.index.ntotal == 0:
+            return []
         top_k = min(top_k, max(1, self.index.ntotal))
         distances, indices = self.index.search(query_embedding, top_k)
         results = []

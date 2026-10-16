@@ -50,6 +50,14 @@ Answer:`;
 
 
 /**
+ * Intelligent grounded local synthesis fallback if no active Groq key is configured.
+ * Exported as generateLocalFallback for use in SSE streaming route.
+ */
+export function generateLocalFallback(query: string, chunks: Chunk[]): string {
+  return generateIntelligentFallback(query, chunks);
+}
+
+/**
  * Intelligent grounded local synthesis fallback if no active Groq key is configured
  */
 function generateIntelligentFallback(query: string, chunks: Chunk[]): string {

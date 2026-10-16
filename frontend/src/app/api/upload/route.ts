@@ -23,21 +23,38 @@ export async function POST(req: NextRequest) {
 
     const processedFiles: { name: string; sizeBytes: number; chunksCount: number }[] = [];
     const allChunks: Chunk[] = [];
+    const skipped: string[] = [];
 
     for (const file of allFiles) {
+      // Bug B-4: Guard against Vercel 4.5MB serverless payload limit
+      const MAX_SIZE_BYTES = 4 * 1024 * 1024; // 4 MB
+      if (file.size > MAX_SIZE_BYTES) {
+        console.warn(`[WARN] Skipping ${file.name}: ${file.size} bytes exceeds 4MB serverless limit.`);
+        skipped.push(file.name);
+        continue;
+      }
+
       let content = "";
       const isPdf = file.name.toLowerCase().endsWith(".pdf");
 
       if (isPdf) {
+        // Bug B-3: pdf-parse@2.x uses LoadParameters interface where `data` accepts TypedArray.
+        // Pass Uint8Array (not raw Buffer) for correct API compatibility per pdf-parse@2.x spec.
+        let parser: PDFParse | null = null;
         try {
           const arrayBuffer = await file.arrayBuffer();
-          const buffer = Buffer.from(arrayBuffer);
-          const parser = new PDFParse({ data: buffer });
-          const parsed = await parser.getText();
-          content = parsed?.text || "";
+          const uint8 = new Uint8Array(arrayBuffer);
+          parser = new PDFParse({ data: uint8 });
+          // getText() returns TextResult — use .text for the full concatenated document string
+          const result = await parser.getText();
+          content = result?.text || "";
         } catch (pdfErr) {
-          console.warn(`Could not parse PDF ${file.name}:`, pdfErr);
-          content = `[Document: ${file.name} - Extracted binary representation]`;
+          console.warn(`[WARN] Could not parse PDF ${file.name}:`, pdfErr);
+          content = `[Document: ${file.name} - PDF text extraction failed]`;
+        } finally {
+          if (parser) {
+            await parser.destroy().catch(() => {});
+          }
         }
       } else {
         try {
@@ -74,6 +91,10 @@ export async function POST(req: NextRequest) {
       filenames: processedFiles.map((f) => f.name),
       chunks: allChunks,
       totalChunks: allChunks.length,
+      ...(skipped.length > 0 && {
+        warning: `${skipped.length} file(s) skipped (exceed 4MB limit): ${skipped.join(", ")}`,
+        skipped,
+      }),
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Upload error";
